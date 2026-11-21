@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title> chalk &amp; grip</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <aside id="hud" class="card">
+            <div class="row"><span id="alt">0m</span><span id="tag">base crag</span> </div>
+            <div class="sm">best <b id="best">0m</b> /flow <b id="flow">x0</b></div>
+            <div id="grip" aria-label="Grip stamina"></div>
+        </aside>
+        <div id="wind" class="card" hidden></div>
+        <nav id="top">
+            <button class="card" id="blog"> Logbook/Ranks</button>
+            <button class="card" id="bsfx">SFX on</button>
+        </nav>
+        <aside id="drawer" class="card">
+            <h2>Logbook</h2>
+            <ol id="lb"></ol>
+            <h3>Hold Key</h3>
+            <ul id="key">
+                <li><i class="jug"></i>jug: restore grip</li>
+                <li><i class="crimp"></i>crimp: steady drain</li>
+                <li><i class="sloper"></i>slooper: moderate drain</li>
+                <li><i class="ice"></i>ice: above 300m, heavy drain,slow</li>
+                <li><i class="crumble"></i>Crumble: bbreaks afetr 1.5s</li>
+            </ul>
+            <p class="sm">Click a hold in the dashed circle to climb. Drag back and release to dyno. space chalks, e sets a piton</p>
+            <button id="bClose">Close</button>
+        </aside>
+        <div id="dock">
+            <button class="card" id="bChalk"><span>Chalk [Space]</span><b>4</b><i><u></u></i></button>
+            <button class="card" id="bpit"><span>piton [E]</span><b>4</b><i><u></u></i></button>
+        </div>
+        <div id="end" class="card" hidden>
+            <h2 id="et"></h2>
+            <p id="ep"></p>
+            <button id="again"> Climb again[r]</button>
+        </div>
+    </body>
+</html>
