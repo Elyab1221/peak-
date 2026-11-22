@@ -13,6 +13,7 @@ const wall={
         this.top=120;
         this.px=0;
         this.lastBolt=0;
+        this.lastBig=-9999;
         this.add(0,120,'jug');
         this.gen(1800);
     },
@@ -38,8 +39,10 @@ const wall={
     gen(h){
         const hf=cfg.half;
         while (this.top<h){
-            this.top +=this.rnd() < 0.12? 150 + this.rnd()* 40:60 + this.rnd()*45;
-            const x=Math.max(-hf,Math.min(hf,this.px +(this.rnd()-0.5)*200));
+            const big=this.top-this.lastBig>1000 && this.rnd()<0.25;
+            if(big) this.lastBig=this.top;
+            this.top+=big? 150+this.rnd()*40 : 55+this.rnd()*40;
+            const x=Math.max(-hf,Math.min(hf,this.px +(this.rnd()-0.5)*(big?60:200)));
             this.px=x;
             this.add(x,this.top,this.pick(this.top));
             if(this.rnd()<0.6)

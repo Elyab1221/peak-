@@ -3,6 +3,7 @@
     g=cv.getContext('2d'),
     $=id=>document.getElementById(id);
     const lerp=(a,b,t)=> a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
     const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
     const mix=(a,b,t)=>{const p=rgb(a),q=rgb(b); return 'rgb('+p.map((v,i)=>Math.round(lerp(v,q[i],t))).join(',')+')';};
     const load=(k,d)=>{
@@ -25,7 +26,7 @@
     }
     addEventListener('resize',size);
     size();
-    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0;
+    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0;
     let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0);
     const L={};
     function reset(){
@@ -59,6 +60,7 @@
         aim=null;
         down=null;
         ended= false;
+        runT=0;
         hangT=0;
         noHold=null;
         noT=0;
@@ -105,6 +107,7 @@
             noHold=null;}
     }
     function caught(){
+        shake=0.4;
         grip=Math.max(8,grip-cfg.catchCost);
         snd.clip();
         let b=null,bd=1e9;
@@ -124,7 +127,8 @@
         lb.push({
             m,
             r:res,
-            d:Date.now()
+            d:Date.now(),
+            s:Math.round(runT)
         });
         lb.sort((a,b)=>b.m-a.m);
         lb=lb.slice(0,10);
@@ -132,7 +136,7 @@
         if(m>best) {best=m; save(cfg.keys.best,m); }
         if (res==='summit') snd.chime();
         $('et').textContent=res==='summit' ? 'Summit reached' : 'Off the wall';
-        $('ep').textContent='Highest point: '+m+'m';
+        $('ep').textContent='Highest point: '+m+'m'+(res==='summit' ? ' in '+fmt(runT) : '');
         $('end').hidden=false;
         drawLb();
     }
@@ -147,6 +151,7 @@
     }
     function update(dt){
         t+=dt;
+        runT+=dt;
         chalk.cd=Math.max(0,chalk.cd-dt);
         pit.cd=Math.max(0,pit.cd-dt); 
         buff=Math.max(0,buff-dt);
@@ -163,6 +168,7 @@
                 let dr =cfg.drain[hold.t];
                 if(dr>0) dr*=(1-Math.min(flow,5)*0.1)*(buff>0?0.5:1);
                 grip=clamp(grip-dr*dt,0,cfg.gripMax);
+                if(grip<20 && Math.floor(t*3)!==Math.floor((t-dt)*3)) snd.tone(300,0.08,'square',0.04);
                 p.x=hold.x;
                 p.y=hold.y-HAND-(hold.t==='ice'?Math.min(hangT*6,26):0);
                 if(grip<=0) release();
@@ -234,7 +240,7 @@
         return {vx,vy};
     }
     cv.addEventListener('pointerdown',e=>{snd.init();
-        if(ended) return;
+        if(ended || paused) return;
         down={x:e.clientX,y:e.clientY};
         aim=null;
     });
@@ -272,8 +278,10 @@
         snd.init();
         if(e.code==='Space') {e.preventDefault();doChalk();}
         else if (e.code==='KeyE') doPit();
+        else if(e.code==='KeyP' || e.code==='Escape') paused=!paused;
         else if(e.code==='KeyR' && ended) reset();
     });
+    addEventListener('blur',()=>{paused=true;});
     $('bChalk').onclick=doChalk;
     $('bpit').onclick=doPit;
     $('again').onclick=reset;
@@ -281,7 +289,7 @@
     $('bClose').onclick=()=>$('drawer').classList.remove('open');
     $('bSfx').onclick=()=>{snd.init(); $('bSfx').textContent=snd.toggle()? 'SFX off': 'SFX on';};
     function drawLb(){
-        $('lb').innerHTML=lb.length ? lb.map(e=>'<li>' +e.m+'m'+(e.r==='s ummit' ? ' summit' : '')+
+        $('lb').innerHTML=lb.length ? lb.map(e=>'<li>' +e.m+'m'+(e.r==='summit' ? ' summit '+fmt(e.s||0) : '')+
         '<span class="sm">' +new Date(e.d).toLocaleDateString()+ '</span></li>')
         .join(''):'<li>No climbs logged yet</li>';
     }
@@ -339,6 +347,8 @@
                 $('tag').textContent=cfg.biomes[biome(alt)].n;
                 $('best').textContent=Math.max(best,Math.floor(maxAlt/px))+'m';
                 $('flow').textContent='x'+Math.min(flow,5);
+                $('time').textContent=fmt(runT);
+                $('hud').style.borderColor=grip<20 && Math.floor(t*4)%2 ? '#e04f16' : '#18181b';
                 const n=Math.ceil(grip/10),
                 gp=$('grip');
                 gp.classList.toggle('low',grip<30);
@@ -353,6 +363,8 @@
                 $('bpit').querySelector('u').style.width=(100*(1-pit.cd/cfg.piton.cd))+'%';
             }
             function draw(dt){
+                g.save();
+                if(shake>0) g.translate((Math.random()-0.5)*shake*24,(Math.random()-0.5)*shake*24);
                 const m=cam/px, f=clamp(m/cfg.summit,0,1);
                 const gr=g.createLinearGradient(0,0,0,H);
                 gr.addColorStop(0,mix(cfg.sky[0],cfg.sky[1],f));
@@ -453,12 +465,19 @@
                         g.beginPath();g.moveTo(rx,y);g.lineTo(rx-14,y-4);g.lineTo(rx,y-8);
                         g.closePath(); g.fill();
                     }
+                g.restore();
+                if(paused){
+                    g.fillStyle='rgba(243,239,230,0.85)'; g.fillRect(0,0,W,H);
+                    g.fillStyle='#18181b'; g.font='700 28px Georgia,serif'; g.textAlign='center';
+                    g.fillText('Paused - press P to resume',W/2,H/2);
+                }
             }
             reset();drawLb();
             let last=performance.now();
             function loop(now){
                 const dt=Math.min(0.033,(now-last)/1000);last=now;
-                if(!ended) update(dt); else{t +=dt; stepParts(dt);snd.wind(0);}
+                shake=Math.max(0,shake-dt);
+                if(paused) snd.wind(0); else if(!ended) update(dt); else{t +=dt; stepParts(dt);snd.wind(0);}
                 draw(dt);hud();requestAnimationFrame(loop);
             }
 requestAnimationFrame(loop);
