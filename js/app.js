@@ -26,7 +26,7 @@
     }
     addEventListener('resize',size);
     size();
-    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0;
+    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0,lives;
     let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0);
     const L={};
     function reset(){
@@ -48,6 +48,7 @@
             y:0
         };
         maxAlt=0;
+        lives=cfg.catches;
         chalk={
             n:cfg.chalk.n,
             cd:0
@@ -107,6 +108,8 @@
             noHold=null;}
     }
     function caught(){
+        lives--;
+        if(lives<0) return end('fell');
         shake=0.4;
         grip=Math.max(8,grip-cfg.catchCost);
         snd.clip();
@@ -192,7 +195,7 @@
                 p.y+=p.vy*dt;
             
             for(const h of wall.holds){
-                if(h.gone || (h==noHold && noT>0)) continue;
+                if(h.gone || (noT>0 && noHold && Math.hypot(h.x-noHold.x,h.y-noHold.y)<cfg.grab*2)) continue;
                 if(Math.hypot(h.x-p.x,h.y-p.y-HAND)< cfg.grab){grab(h); break;}
             }
             if(st==='fly'){
@@ -344,7 +347,7 @@
             function hud(){
                 const alt=Math.max(0,Math.floor((p.y+HAND)/px));
                 $('alt').textContent=alt+'m';
-                $('tag').textContent=cfg.biomes[biome(alt)].n;
+                $('tag').textContent=cfg.biomes[biome(alt)].n+' · '+Math.max(0,lives)+' ropes left';
                 $('best').textContent=Math.max(best,Math.floor(maxAlt/px))+'m';
                 $('flow').textContent='x'+Math.min(flow,5);
                 $('time').textContent=fmt(runT);
@@ -438,7 +441,7 @@
                         const v=aimvel();let x=p.x,y=p.y,vx=v.vx,vy=v.vy;
                         g.fillStyle='#e04f16';
                         for(let i=0;i<28;i++){
-                            vy-=cfg.grav*0.045; x += vx*0.045;y+=vy*0.045;
+                            vy-=cfg.grav*0.045; vx+=wind*0.045; x += vx*0.045;y+=vy*0.045;
                             g.globalAlpha=1-i/32;g.beginPath();g.arc(sx(x),sy(y+HAND),3,0,7);g.fill();}
                             g.globalAlpha=1;
                     }

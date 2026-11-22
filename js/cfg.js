@@ -11,6 +11,7 @@ const cfg={
     crumble:1.4,
     gripMax:100,
     catchCost:25,
+    catches:3,
     slack:260,
     iceForm:300,
     half:300,
