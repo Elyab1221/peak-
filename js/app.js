@@ -26,7 +26,7 @@
     }
     addEventListener('resize',size);
     size();
-    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0,lives;
+    let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0,lives,rocks=[],warnings=[],rockTimer=0;
     let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0);
     const L={};
     function reset(){
@@ -49,6 +49,9 @@
         };
         maxAlt=0;
         lives=cfg.catches;
+        rocks=[];
+        warnings=[];
+        rockTimer=0;
         chalk={
             n:cfg.chalk.n,
             cd:0
@@ -114,8 +117,8 @@
         grip=Math.max(8,grip-cfg.catchCost);
         snd.clip();
         let b=null,bd=1e9;
-        const qx=anchor.x,qy=anchor.y-cfg.slack*0.6;
-        for(const h of wall.holds) if(!h.gone) {const d=Math.hypot(h.x-qx,h.y-qy);
+        const qx=p.x,qy=anchor.y-cfg.slack*0.6;
+        for(const h of wall.holds) if(!h.gone && h.y<anchor.y) {const d=Math.hypot(h.x-qx,h.y-qy);
             if(d<bd){bd=d;b=h;}}
             if(!b) return end('fell');
             p.vx=p.vy=0;
@@ -212,7 +215,42 @@
             puff(b.x,b.y,8,'#e04f16',90);}
             maxAlt=Math.max(maxAlt,p.y+HAND);
             if(maxAlt>=cfg.summit*px) end('summit');
+            if(alt>cfg.wind.from){
+                rockTimer-=dt;
+                if(rockTimer<=0){
+                    const f=1+(alt-cfg.wind.from)/200;
+                    rockTimer=cfg.rock.rate/f;
+                    warnings.push({x:(Math.random()*2-1)*(cfg.half-30),t:1});
+                }
+            }
     }
+        for(let i=warnings.length-1;i>=0;i--){
+            const w=warnings[i];
+            w.t-=dt;
+            if(w.t<=0){
+                rocks.push({x:w.x,y:cam+H*AY+30,r:10});
+                warnings.splice(i,1);
+            }
+        }
+        for(let i=rocks.length-1;i>=0;i--){
+            const rk=rocks[i];
+            rk.y-=cfg.rock.speed*dt;
+            if(sy(rk.y)>H+30){
+                rocks.splice(i,1);
+                continue;
+            }
+            if(!ended && (st==='hang'||st==='reach'||st==='fly') && Math.hypot(rk.x-p.x,rk.y-(p.y+30))<22){
+                rocks.splice(i,1);
+                puff(rk.x,rk.y,10,'#9aa0a8',80);
+                snd.crumble();
+                st='fly';
+                p.vx=(Math.random()-0.5)*100;
+                p.vy=-80;
+                if(anchor.y>0) caught();
+                else end('fell');
+                break;
+            }
+        }
     
         stepParts(dt);
         cam+=(Math.max(150,p.y+110)-cam)*Math.min(1,dt*4);
@@ -450,6 +488,28 @@
                         g.fillRect(sx(q.x),sy(q.y),q.r,q.r);
                     }
                     g.globalAlpha=1;
+                    for(const w of warnings){
+                        const wx=sx(w.x);
+                        g.fillStyle='#e04f16';
+                        g.strokeStyle='#18181b';
+                        g.lineWidth=1.5;
+                        g.beginPath();
+                        g.moveTo(wx,8);
+                        g.lineTo(wx+6,20);
+                        g.lineTo(wx-6,20);
+                        g.closePath();
+                        g.fill();
+                        g.stroke();
+                    }
+                    for(const rk of rocks){
+                        g.fillStyle='#8e959e';
+                        g.strokeStyle='#18181b';
+                        g.lineWidth=1.5;
+                        g.beginPath();
+                        g.arc(sx(rk.x),sy(rk.y),rk.r,0,7);
+                        g.fill();
+                        g.stroke();
+                    }
                     //elevation ruler
 
                     const rx=W-16;

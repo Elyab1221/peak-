@@ -30,6 +30,7 @@ const cfg={
     },
     piton:{n:3, cd:5},
     wind:{from:300, max:320},
+    rock:{rate:3, speed:320},
     col:{
         jug: '#1f7a4c',
         crimp: '#d9c9a3',
