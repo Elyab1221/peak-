@@ -29,6 +29,7 @@ const cfg={
         buff:5
     },
     piton:{n:3, cd:5},
+    pickup:0.15,
     wind:{from:300, max:320},
     rock:{rate:3, speed:320},
     col:{

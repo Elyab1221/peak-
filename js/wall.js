@@ -1,6 +1,7 @@
 const wall={
     holds:[],
     bolts:[],
+    pickups:[],
     top:0,
     s:1,
     px:0,
@@ -10,6 +11,7 @@ const wall={
         this.s=seed || 7;
         this.holds=[];
         this.bolts=[];
+        this.pickups=[];
         this.top=120;
         this.px=0;
         this.lastBolt=0;
@@ -47,6 +49,10 @@ const wall={
             this.px=x;
             this.holds=this.holds.filter(o=>!(o.extra && Math.hypot(o.x-x,o.y-this.top)<70));
             this.add(x,this.top,this.pick(this.top));
+            if(this.rnd()<cfg.pickup){
+                const pt=['chalk','piton','rope'][Math.floor(this.rnd()*3)],ox=(this.rnd()<0.5?-1:1)*26;
+                this.pickups.push({x:x+ox,y:this.top,t:pt,taken:false});
+            }
             if(this.rnd()<0.6){
                 const ex=Math.max(-hf,Math.min(hf,x+(this.rnd()-0.5)*320)),
                 ey=this.top+(this.rnd()-0.5)*50;

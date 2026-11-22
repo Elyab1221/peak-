@@ -7,7 +7,7 @@
     const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
     const mix=(a,b,t)=>{const p=rgb(a),q=rgb(b); return 'rgb('+p.map((v,i)=>Math.round(lerp(v,q[i],t))).join(',')+')';};
     const load=(k,d)=>{
-        try {return JSON.parse(localStorage.getItem(k)) || d;
+        try {const v=localStorage.getItem(k); return v===null?d:JSON.parse(v);
         }catch(e){return d;}};
     const save=(k,v) => {try{
         localStorage.setItem(k,JSON.stringify(v));
@@ -15,11 +15,12 @@
     const px=cfg.px,
     AY=0.62,
     HAND=70;
-    let W,H,cam=150, t=0;
-    const sx=x=>W/2+x,sy=y=>H*AY-(y-cam);
+        let W,H,cam=150, t=0, kScale=1;
+    const sx=x=>W/2+x*kScale,sy=y=>H*AY-(y-cam);
     function size(){const d=Math.min(devicePixelRatio || 1,2);
         W=innerWidth;
         H=innerHeight;
+        kScale=Math.min(1,(W-24)/680);
         cv.width=W*d;
         cv.height= H*d;
         g.setTransform(d,0,0,d,0,0);
@@ -30,7 +31,7 @@
     let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0),ghost=load(cfg.keys.ghost,null),rec=[],recT=0,curSeed=0,forceRand=false;
     const L={};
     function reset(){
-        curSeed=(forceRand || !ghost)?(1+Math.floor(Math.random()*9999)):ghost.seed;
+        curSeed=(forceRand || !ghost || typeof ghost.seed!=='number')?(1+Math.floor(Math.random()*9999)):ghost.seed;
         forceRand=false;
         wall.reset(curSeed);
         rec=[];
@@ -95,6 +96,20 @@
         lastGrab=t;
         if(h.t==='crumble') h.on=true;
         snd.grab();
+        if(wall.pickups){
+            for(let i=wall.pickups.length-1;i>=0;i--){
+                const u=wall.pickups[i];
+                if(!u.taken && Math.hypot(u.x-h.x,u.y-h.y)<=40){
+                    u.taken=true;
+                    if(u.t==='chalk') chalk.n=Math.min(cfg.chalk.n,chalk.n+1);
+                    else if(u.t==='piton') pit.n=Math.min(cfg.piton.n,pit.n+1);
+                    else if(u.t==='rope') lives=Math.min(cfg.catches,lives+1);
+                    snd.clip();
+                    puff(u.x,u.y,8,u.t==='chalk'?'#f3efe6':u.t==='piton'?'#e04f16':'#1f7a4c',80);
+                    wall.pickups.splice(i,1);
+                }
+            }
+        }
     }
     function release(){
         st='fly';
@@ -122,14 +137,20 @@
         snd.clip();
         let b=null,bd=1e9;
         const qx=p.x,qy=anchor.y-cfg.slack*0.6;
-        for(const h of wall.holds) if(!h.gone && h.y<anchor.y) {const d=Math.hypot(h.x-qx,h.y-qy);
+        for(const h of wall.holds) if(!h.gone && h.y<=anchor.y) {const d=Math.hypot(h.x-qx,h.y-qy);
             if(d<bd){bd=d;b=h;}}
-            if(!b) return end('fell');
-            p.x=b.x;
-            p.y=b.y-HAND-20;
-            p.vx=p.vy=0;
-            tgt=b;
-            st='reach';
+        if(!b){
+            for(const h of wall.holds) if(!h.gone) {const d=Math.hypot(h.x-qx,h.y-qy);
+                if(d<bd){bd=d;b=h;}}
+        }
+        if(!b) return end('fell');
+        p.x=b.x;
+        p.y=b.y-HAND-20;
+        p.vx=p.vy=0;
+        for(const k of ['hl','hr']) L[k]={x:b.x,y:b.y};
+        for(const k of ['fl','fr']) L[k]={x:b.x,y:b.y-HAND-20};
+        tgt=b;
+        st='reach';
     }
     function end(res){
         if(ended) return;
@@ -152,7 +173,7 @@
         }
         if (res==='summit') snd.chime();
         $('et').textContent=res==='summit' ? 'Summit reached' : 'Off the wall';
-        $('ep').textContent='Highest point: '+m+'m'+(res==='summit' ? ' in '+fmt(runT) : '');
+        $('ep').textContent='Highest point: '+m+'m · Time: '+fmt(runT);
         $('end').hidden=false;
         drawLb();
     }
@@ -289,13 +310,22 @@
         snd.clip(); puff(b.x,b.y,10,'#e04f16',100);
     }
     function aimvel(){
-        let vx=(down.x-aim.x)* cfg.launchK,vy=(aim.y-down.y)*cfg.launchK;
+        let vx=((down.x-aim.x)/kScale)*cfg.launchK,vy=(aim.y-down.y)*cfg.launchK;
         const m=Math.hypot(vx,vy);
         if (m>cfg.launchMax){ vx*=cfg.launchMax/m; vy*=cfg.launchMax/m;}
         return {vx,vy};
     }
     cv.addEventListener('pointerdown',e=>{snd.init();
-        if(ended || paused) return;
+        if(ended) return;
+        if($('drawer').classList.contains('open')){
+            $('drawer').classList.remove('open');
+            return;
+        }
+        if(paused){
+            paused=false;
+            $('bPause').textContent='Pause';
+            return;
+        }
         down={x:e.clientX,y:e.clientY};
         aim=null;
     });
@@ -314,10 +344,10 @@
             grip=Math.max(1,grip-cfg.launchCost);
             snd.grab();
         }else if(!aim && st==='hang'){
-            const wx=e.clientX-W/2,
+            const wx=(e.clientX-W/2)/kScale,
             wy=cam+(H*AY-e.clientY);
             let b=null,
-            bd=30;
+            bd=Math.max(30,26/kScale);
             for(const h of wall.holds){
                 if(h.gone || h===hold) continue;
                 const d=Math.hypot(h.x-wx,h.y-wy);
@@ -333,12 +363,19 @@
         snd.init();
         if(e.code==='Space') {e.preventDefault();doChalk();}
         else if (e.code==='KeyE') doPit();
-        else if(e.code==='KeyP' || e.code==='Escape') paused=!paused;
+        else if(e.code==='KeyP' || e.code==='Escape') {
+            paused=!paused;
+            $('bPause').textContent=paused?'Resume':'Pause';
+        }
         else if(e.code==='KeyR' && ended) reset();
     });
-    addEventListener('blur',()=>{paused=true;});
-    $('bChalk').onclick=doChalk;
-    $('bpit').onclick=doPit;
+    addEventListener('blur',()=>{paused=true;$('bPause').textContent='Resume';});
+    $('bChalk').onclick=()=>{snd.init();doChalk();};
+    $('bpit').onclick=()=>{snd.init();doPit();};
+    $('bPause').onclick=()=>{
+        paused=!paused;
+        $('bPause').textContent=paused?'Resume':'Pause';
+    };
     $('again').onclick=reset;
     $('bRand').onclick=()=>{forceRand=true;reset();};
     $('bLog').onclick=()=>{drawLb();$('drawer').classList.toggle('open');};
@@ -354,8 +391,6 @@
         while(i<cfg.biomes.length-1 && m>=cfg.biomes[i+1].at) i++; return i;
     };
     function limb(ax,ay,bx,by,l,dir){
-        // const dx=bx-ax;
-        // dy=by-ay;
         const dx=bx-ax,dy=by-ay,d=Math.min(Math.hypot(dx,dy),2*l-0.5),a=Math.atan2(dy,dx),n=a+dir*Math.acos(d/(2*l));
         g.beginPath();
         g.moveTo(ax,ay);
@@ -400,7 +435,7 @@
             function hud(){
                 const alt=Math.max(0,Math.floor((p.y+HAND)/px));
                 $('alt').textContent=alt+'m';
-                $('tag').textContent=cfg.biomes[biome(alt)].n+' · '+Math.max(0,lives)+' ropes left';
+                $('tag').textContent=cfg.biomes[biome(alt)].n+' · '+Math.max(0,lives)+(lives===1?' rope left':' ropes left');
                 $('best').textContent=Math.max(best,Math.floor(maxAlt/px))+'m';
                 $('flow').textContent='x'+Math.min(flow,5);
                 $('time').textContent=fmt(runT);
@@ -444,7 +479,6 @@
                 g.strokeRect(L0,-5,R0-L0,H+10);
                 if(sy(0)<H){g.fillStyle='#6b6355'; g.fillRect(0,sy(0),W,H-sy(0));
                     g.strokeRect(-5,sy(0),W+10,H);}
-                    //rope
                     g.strokeStyle='#e04f16';
                     g.lineWidth=2.5;
                     g.beginPath();
@@ -452,7 +486,6 @@
                     for(const b of wall.bolts) if (b.on) g.lineTo(sx(b.x),sy(b.y));
                     g.lineTo(sx(p.x),sy(p.y));
                     g.stroke();
-                    //bolts and holds
                     for(const b of wall.bolts){
                         const y=sy(b.y);
                         if(y<-20 || y>H+20) continue;
@@ -482,6 +515,33 @@
                             if(inReach(h)){
                                 g.strokeStyle='#e04f16'; g.lineWidth=2;
                                 g.beginPath();g.arc(x,y,20,0,7); g.stroke();}
+                    }
+                    if(wall.pickups){
+                        for(const u of wall.pickups){
+                            const y=sy(u.y); if(u.taken || y<-30 || y>H+30) continue;
+                            const x=sx(u.x);
+                            g.lineWidth=1.5;
+                            g.strokeStyle='#18181b';
+                            if(u.t==='chalk'){
+                                g.fillStyle='#f3efe6';
+                                g.beginPath();
+                                g.rect(x-5,y-5,10,10);
+                                g.fill();
+                                g.stroke();
+                            }else if(u.t==='piton'){
+                                g.fillStyle='#e04f16';
+                                g.beginPath();
+                                g.rect(x-5,y-5,10,10);
+                                g.fill();
+                                g.stroke();
+                            }else if(u.t==='rope'){
+                                g.fillStyle='#1f7a4c';
+                                g.beginPath();
+                                g.arc(x,y,6,0,7);
+                                g.fill();
+                                g.stroke();
+                            }
+                        }
                     }
                     if(st==='hang' && !aim){
                         g.strokeStyle='rgba(243,239,230,0.75)';
@@ -558,8 +618,6 @@
                         g.fill();
                         g.stroke();
                     }
-                    //elevation ruler
-
                     const rx=W-16;
                     g.strokeStyle=g.fillStyle='#18181b';g.lineWidth=1.5;g.beginPath();
                     g.moveTo(rx,0);g.lineTo(rx,H);g.stroke();
@@ -580,7 +638,7 @@
                 if(paused){
                     g.fillStyle='rgba(243,239,230,0.85)'; g.fillRect(0,0,W,H);
                     g.fillStyle='#18181b'; g.font='700 28px Georgia,serif'; g.textAlign='center';
-                    g.fillText('Paused - press P to resume',W/2,H/2);
+                    g.fillText('Paused - tap screen to resume',W/2,H/2);
                 }
             }
             reset();drawLb();
