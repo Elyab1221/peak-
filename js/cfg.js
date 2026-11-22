@@ -39,7 +39,7 @@ const cfg={
     biomes:[
         {n: 'Base Crag', at:0,rock:'#22252a'},
         {n: 'Wind Ridge', at:300,rock:'#1f262e'},
-        {n: 'Summit Spire', at:0,rock:'#1b2230'},
+        {n: 'Summit Spire', at:650,rock:'#1b2230'},
     ],
     sky:['#f3efe6','#e2dcd0'],
     keys:{lb:'cg_lb',best: 'cg_best'}

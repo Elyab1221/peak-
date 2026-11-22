@@ -6,13 +6,13 @@ const wall={
     px:0,
     lastBolt:0,
     rnd(){this.s=(this.s*16807) % 2147483647; return this.s/2147483647;},
-    reset(send){
+    reset(seed){
         this.s=seed || 7;
         this.holds=[];
         this.bolts=[];
         this.top=120;
         this.px=0;
-        this.lastBolt0;
+        this.lastBolt=0;
         this.add(0,120,'jug');
         this.gen(1800);
     },

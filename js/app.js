@@ -2,9 +2,9 @@
     const cv=document.getElementById('c'),
     g=cv.getContext('2d'),
     $=id=>document.getElementById(id);
-    const lerp=(a,b,t)=> a+(b-a)*t,clamp=(V,a,b)=>Math.max(a,Math.min(b,v));
+    const lerp=(a,b,t)=> a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
     const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
-    const mix=(a,b,t)=>{const p=rgb(a),q=rgb(b); return 'rgb('+p.map((v,i)=>Math.round(lerp(v,q[i],t))).join(','+')');};
+    const mix=(a,b,t)=>{const p=rgb(a),q=rgb(b); return 'rgb('+p.map((v,i)=>Math.round(lerp(v,q[i],t))).join(',')+')';};
     const load=(k,d)=>{
         try {return JSON.parse(localStorage.getItem(k)) || d;
         }catch(e){return d;}};
@@ -14,8 +14,8 @@
     const px=cfg.px,
     AY=0.62,
     HAND=70;
-    let w,h,cam=150, t=0;
-    const sx=x=>W/2+x,sy=y=>H*AY-(Y-cam);
+    let W,H,cam=150, t=0;
+    const sx=x=>W/2+x,sy=y=>H*AY-(y-cam);
     function size(){const d=Math.min(devicePixelRatio || 1,2);
         W=innerWidth;
         H=innerHeight;
@@ -64,7 +64,7 @@
         noT=0;
         cam=150;
         $('end').hidden=true;
-        for(const k of ['h1','hr','fl','fr']) L[K]={x:hold.x,y:hold.y};
+        for(const k of ['hl','hr','fl','fr']) L[k]={x:hold.x,y:hold.y};
     }
     function puff(x,y,n,c,sp){
         for(let i=0;i<n;i++){
@@ -78,8 +78,8 @@
     }
     function grab(h){
         st='hang';
-        hold:h;
-        hangT:0;
+        hold=h;
+        hangT=0;
         p.vx=p.vy=0;
         flow=t-lastGrab<cfg.flowWin ? flow+1:0;
         lastGrab=t;
@@ -111,7 +111,7 @@
         const qx=anchor.x,qy=anchor.y-cfg.slack*0.6;
         for(const h of wall.holds) if(!h.gone) {const d=Math.hypot(h.x-qx,h.y-qy);
             if(d<bd){bd=d;b=h;}}
-            if(!b) return ended('fell');
+            if(!b) return end('fell');
             p.vx=p.vy=0;
             tgt=b;
             st='reach';
@@ -151,10 +151,9 @@
         pit.cd=Math.max(0,pit.cd-dt); 
         buff=Math.max(0,buff-dt);
         noT-=dt;
-        well.gen(p.y+1800);
+        wall.gen(p.y+1800);
         const alt=(p.y+HAND)/px;
-        wind=alt>cfg.wind.from?Math.sin(t*0.9)*Math.sin(t*0.9)*
-        Math(t*0.37+1)*cfg.wind.max*clamp((alt-cfg.wind.form)/60,0,1):0;
+        wind=alt>cfg.wind.from?Math.sin(t*0.9)*Math.sin(t*0.37+1)*cfg.wind.max*clamp((alt-cfg.wind.from)/60,0,1):0;
         for (const h of wall.holds) if (h.on && !h.gone){
             h.life+=dt;
             if(h.life>cfg.crumble)
@@ -185,7 +184,7 @@
                 p.vx+=wind*dt;
                 p.x+=p.vx*dt;
                 p.y+=p.vy*dt;
-            }
+            
             for(const h of wall.holds){
                 if(h.gone || (h==noHold && noT>0)) continue;
                 if(Math.hypot(h.x-p.x,h.y-p.y-HAND)< cfg.grab){grab(h); break;}
@@ -194,7 +193,8 @@
                 if(anchor.y<=0 && p.y<0) end('fell');
                 else if(p.y+HAND< anchor.y-cfg.slack) caught();
             }
-    }
+            }
+    
     if(!ended){
         for(const b of wall.bolts) if(!b.on && p.y+HAND>b.y){
             b.on=true;
@@ -204,6 +204,10 @@
             maxAlt=Math.max(maxAlt,p.y+HAND);
             if(maxAlt>=cfg.summit*px) end('summit');
     }
+    
+        stepParts(dt);
+        cam+=(Math.max(150,p.y+110)-cam)*Math.min(1,dt*4);
+        snd.wind(Math.abs(wind)/cfg.wind.max*0.16)}
     function doChalk(){
         if(ended || st!=='hang' || chalk.n<=0 || chalk.cd>0) return;
         chalk.n--;
@@ -235,7 +239,7 @@
         aim=null;
     });
     cv.addEventListener('pointermove',e=>{
-        if(down && Math.hypot(e.clientX-down.x,e.clientY-down.y)>14) aim={x:clientX,y:clientY};
+        if(down && Math.hypot(e.clientX-down.x,e.clientY-down.y)>14) aim={x:e.clientX,y:e.clientY};
     });
     cv.addEventListener('pointerup',e=>{
         if(!down) return;
@@ -250,7 +254,7 @@
             snd.grab();
         }else if(!aim && st==='hang'){
             const wx=e.clientX-W/2,
-            wy=can+(H*AY-e.clientY);
+            wy=cam+(H*AY-e.clientY);
             let b=null,
             bd=30;
             for(const h of wall.holds){
@@ -277,8 +281,8 @@
     $('bClose').onclick=()=>$('drawer').classList.remove('open');
     $('bSfx').onclick=()=>{snd.init(); $('bSfx').textContent=snd.toggle()? 'SFX off': 'SFX on';};
     function drawLb(){
-        $('lb').innerHTML=lb.length ? lb.map(e=>'<li>' +e.m+'m'+(e.r==='summit' ? 'summit' : '')+
-        '<span class="sm>' +new Date(e.d).toLocaleDateString()+ '</span></li>')
+        $('lb').innerHTML=lb.length ? lb.map(e=>'<li>' +e.m+'m'+(e.r==='s ummit' ? ' summit' : '')+
+        '<span class="sm">' +new Date(e.d).toLocaleDateString()+ '</span></li>')
         .join(''):'<li>No climbs logged yet</li>';
     }
     const biome=m=>{
@@ -286,29 +290,29 @@
         while(i<cfg.biomes.length-1 && m>=cfg.biomes[i+1].at) i++; return i;
     };
     function limb(ax,ay,bx,by,l,dir){
-        const dx=bx-ax,
-        dy=by-ay,
-        d=Math.min(Math.min(Math.hypot(dx,dy),2*l-0.5),a=Math.atan2(dy,dx),n=a+dir*Math.acos(d/(2*l)));
+        // const dx=bx-ax;
+        // dy=by-ay;
+        const dx=bx-ax,dy=by-ay,d=Math.min(Math.hypot(dx,dy),2*l-0.5),a=Math.atan2(dy,dx),n=a+dir*Math.acos(d/(2*l));
         g.beginPath();
         g.moveTo(ax,ay);
-        g.lineTo(ax,Math.cos(n)*L,ay+Math.sin(n)*l);
+        g.lineTo(ax+Math.cos(n)*l,ay+Math.sin(n)*l);
         g.lineTo(bx,by);
         g.stroke();
     }
     function climber(dt){
         const k=Math.min(1,dt*16),
         hs=st==='hang'? hold : st==='reach' ? tgt:null;
-        const T=hs?{h1:[hs.x-9,hs.y],
-            hr:[hs.x+9,hs.y],fl:[p.x-15,p.y-500],
+        const T=hs?{hl:[hs.x-9,hs.y],
+            hr:[hs.x+9,hs.y],fl:[p.x-15,p.y-50],
         fr:[p.x +15, p.y-50]}
-        :{h1:[
+        :{hl:[
             p.x-10,
             p.y+60],
         hr:[p.x+10,p.y+66],
         fl:[p.x-12,p.y-56],
         fr:[p.x+12,p.y-52]};
         for(const n in T){
-            L[n].x+=(T[n[0]-L[n].x])*k;
+            L[n].x+=(T[n][0]-L[n].x)*k;
             L[n].y+=(T[n][1]-L[n].y)*k}
             const hx=sx(p.x),
             hy=sy(p.y),
@@ -316,7 +320,7 @@
             g.lineCap = g.lineJoin='round';
             g.strokeStyle= '#f3efe6';
             g.lineWidth=8;
-            limb(hx-5,hy,sx(L.fl.x),sy(L,fl.y),32,1);
+            limb(hx-5,hy,sx(L.fl.x),sy(L.fl.y),32,1);
             limb(hx+5,hy,sx(L.fr.x),sy(L.fr.y),32,-1);
             limb(hx-6,shy,sx(L.hl.x),sy(L.hl.y),26,-1);
             limb(hx+6,shy,sx(L.hr.x),sy(L.hr.y),26,1);
@@ -325,12 +329,12 @@
             g.strokeStyle='#e04f16';g.lineWidth=10;g.beginPath();
             g.moveTo(hx,hy);g.lineTo(hx,shy);g.stroke();
             g.fillStyle= '#f3efe6';g.strokeStyle= '#18181b';g.lineWidth=1.5;
-            g.beginPath();g.arc(hx,shy-13,18,0,7);g.fill();
+            g.beginPath();g.arc(hx,shy-13,8,0,7);g.fill();
             g.stroke();g.fillStyle='#e04f16';g.beginPath();
             g.arc(hx,shy-13,8,Math.PI,0);g.fill();g.stroke();
             }
             function hud(){
-                const alt=Math.max(0,Math.floor((p,y+HAND)/px));
+                const alt=Math.max(0,Math.floor((p.y+HAND)/px));
                 $('alt').textContent=alt+'m';
                 $('tag').textContent=cfg.biomes[biome(alt)].n;
                 $('best').textContent=Math.max(best,Math.floor(maxAlt/px))+'m';
@@ -341,39 +345,39 @@
                 if (gp.children.length!==10){gp.innerHTML='<span></span>'.repeat(10);}
                 for (let i=0;i<10;i++) gp.children[i].classList.toggle('on',i<n);
                 const w=$('wind');
-                w.hidden=alt<cfg.wind.form;
-                if(!w.hidden){const s=Math.round(Math.abs(wind)/cfg.wind.max*10); w.textContent=s ?(wind>0? 'WIND >> ' : '<< WIND')+s:'WIND calm';}
+                w.hidden=alt<cfg.wind.from;
+                if(!w.hidden){const s=Math.round(Math.abs(wind)/cfg.wind.max*10); w.textContent=s ?(wind>0? 'WIND >> ' : '<< WIND ')+s:'WIND calm';}
                 $('bChalk').querySelector('b').textContent=chalk.n;
                 $('bpit').querySelector('b').textContent=pit.n;
                 $('bChalk').querySelector('u').style.width=(100*(1-chalk.cd/cfg.chalk.cd))+'%'
-                $('bpit').querySelector('u').style.width=(100*(1-pit.cd/cfg.chalk.cd))='%';
+                $('bpit').querySelector('u').style.width=(100*(1-pit.cd/cfg.piton.cd))+'%';
             }
             function draw(dt){
                 const m=cam/px, f=clamp(m/cfg.summit,0,1);
                 const gr=g.createLinearGradient(0,0,0,H);
                 gr.addColorStop(0,mix(cfg.sky[0],cfg.sky[1],f));
-                gr.addColorStop(1,mix(cfg.sky[0],cfg.sky[1],clamp(f+0.2,0.1)));
+                gr.addColorStop(1,mix(cfg.sky[0],cfg.sky[1],clamp(f+0.2,0,1)));
                 g.fillStyle=gr;
-                g.fillRect=(0,0,W,H);
+                g.fillRect(0,0,W,H);
                 const bs=cfg.biomes,bi=biome(m),bj=Math.min(bi+1,bs.length-1);
                 const L0=sx(-340), R0=sx(340);
-                g.fillStyle= mix(bs[bi].rock, bs[bj].rocj,bj===bi ? 0: clamp((m-(bs[bj].at-40))/40,0,1));
-                g.fillRect(L0,0,R0,H);
+                g.fillStyle= mix(bs[bi].rock, bs[bj].rock,bj===bi ? 0: clamp((m-(bs[bj].at-40))/40,0,1));
+                g.fillRect(L0,0,R0-L0,H);
                 g.strokeStyle= 'rgba(243,239,230,0.07)';
                 g.lineWidth=1;
-                for(let y=Math.ceil((cam-H*(1-AY))/46) * 46; y<cam+H*AY;y+46){
+                for(let y=Math.ceil((cam-H*(1-AY))/46) * 46; y<cam+H*AY;y+=46){
                     g.beginPath();
-                    g.moveTo(L0,sy(Y));
-                    for(let x=L0; X<=R0;X+=20) g.lineTo(x,sy(y)+Math.sin(x*0.02+y*0.05)*6);
+                    g.moveTo(L0,sy(y));
+                    for(let x=L0; x<=R0;x+=20) g.lineTo(x,sy(y)+Math.sin(x*0.02+y*0.05)*6);
                     g.stroke();
                 }
                 g.strokeStyle='#18181b';
                 g.lineWidth=1.5;
                 g.strokeRect(L0,-5,R0-L0,H+10);
-                if(sy(0)<H){g.fillStyle='6b6355'; g.fillRect(0,sy(0),W,H-sy(0));
+                if(sy(0)<H){g.fillStyle='#6b6355'; g.fillRect(0,sy(0),W,H-sy(0));
                     g.strokeRect(-5,sy(0),W+10,H);}
                     //rope
-                    g.strokeStyle='e04f16';
+                    g.strokeStyle='#e04f16';
                     g.lineWidth=2.5;
                     g.beginPath();
                     g.moveTo(sx(0),sy(0));
@@ -403,16 +407,16 @@
                             g.moveTo(x-12,y+7);g.lineTo(x,y-10);
                             g.lineTo(x+12,y+7); g.closePath();
                         }
-                        else if(h.t==='crumble'){
-                            g.beginPath();
-                            g.moveTo(x-4,y-8);g.lineTo(x+1,7);
-                            g.lineTo(x-3,y+8); g.stroke();}
+                        else if(h.t === 'crumble') g.rect(x-12,y-8,24,16);
+                        else g.arc(x,y,13,0,7);
+                        g.fill(); g.stroke();
+                        if(h.t==='crumble'){g.beginPath();g.moveTo(x-4,y-8); g.lineTo(x+1,y);g.lineTo(x-3,y+8);g.stroke();}
                             if(inReach(h)){
                                 g.strokeStyle='#e04f16'; g.lineWidth=2;
                                 g.beginPath();g.arc(x,y,20,0,7); g.stroke();}
                     }
                     if(st==='hang' && !aim){
-                        g.strokeStyle='rgba(2423,239,230,0.75)';
+                        g.strokeStyle='rgba(243,239,230,0.75)';
                         g.lineWidth=1.5;g.setLineDash([6,6]);
                         g.beginPath();g.arc(sx(p.x),sy(p.y+HAND),cfg.reach,0,7);
                         g.stroke();g.setLineDash([]);
@@ -422,7 +426,7 @@
                         const v=aimvel();let x=p.x,y=p.y,vx=v.vx,vy=v.vy;
                         g.fillStyle='#e04f16';
                         for(let i=0;i<28;i++){
-                            vy-cfg.grav*0.045; x += vx*0.045;y+=vy*0.045;
+                            vy-=cfg.grav*0.045; x += vx*0.045;y+=vy*0.045;
                             g.globalAlpha=1-i/32;g.beginPath();g.arc(sx(x),sy(y+HAND),3,0,7);g.fill();}
                             g.globalAlpha=1;
                     }
@@ -434,7 +438,7 @@
                     //elevation ruler
 
                     const rx=W-16;
-                    g.strokeStyle=g.fillStyle='#18181b';g.lineWidth=1.5;g,beginPath();
+                    g.strokeStyle=g.fillStyle='#18181b';g.lineWidth=1.5;g.beginPath();
                     g.moveTo(rx,0);g.lineTo(rx,H);g.stroke();
                     g.font='10px ui-monospace,monospace';g.textAlign='right';
                     const lo=Math.max(0,Math.floor((cam-H*(1-AY))/(10*px))),hi=Math.min(100,Math.ceil((cam+H*AY)/(10*px)));

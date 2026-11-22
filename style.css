@@ -25,7 +25,7 @@ html,body{
     background: #f3efe6;
     border: 1.5px solid #18181b;
     box-shadow: 3px 3px 0 #18181b;
-    color: 18181b;
+    color: #18181b;
 }
 button{font: inherit; cursor: pointer;}
 #hud{
@@ -55,8 +55,8 @@ button{font: inherit; cursor: pointer;}
     border: 1.5px solid #18181b;
     background: transparent;
 }
-#grip span .on{background: #1f7a4c;}
-#grip.low span .on{background: #e04f16;}
+#grip span.on{background: #1f7a4c;}
+#grip.low span.on{background: #e04f16;}
 #wind{
     position: fixed;
     top: 128px;
@@ -74,7 +74,7 @@ button{font: inherit; cursor: pointer;}
 #top button{padding: 7px 12px;}
 #top button:active,#dock button:active,#end button:active{
     transform: translate(2px,2px);
-    box-shadow: 1px 1px 0#18181b;
+    box-shadow: 1px 1px 0 #18181b;
 }
 #drawer{
     position: fixed;
@@ -88,7 +88,7 @@ button{font: inherit; cursor: pointer;}
     overflow: auto;
     z-index: 5;
 }
-#drawer .open{transform: none;}
+#drawer.open{transform: none;}
 h2{
     font: 700 20px Georgia,serif;
     margin-bottom: 8px;

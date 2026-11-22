@@ -5,42 +5,42 @@ const snd={
     nb:null,
     init() {
         if(this.ctx){
-            if(this.ctx.state==='suspended') this.ctx.resume();return;
+            if(this.ctx.state==='suspended') this.ctx.resume();return;}
             const C=window.AudioContext || window.webkitAudioContext;
             if(!C) return;
             const c=this.ctx=new C();
-            const n=C.sampleRate;
-            this.nb=C.createBuffer(1,n,n);
+            const n=c.sampleRate;
+            this.nb=c.createBuffer(1,n,n);
             const d=this.nb.getChannelData(0);
             for (let i=0;i<n;i++) d[i]=Math.random()*2-1;
-            const s=C.createBufferSource(), f=C.createBiquadFilter();
+            const s=c.createBufferSource(), f=c.createBiquadFilter();
             s.buffer=this.nb;
             s.loop=true;
             f.type='bandpass';
             f.frequency.value=420;
-            this.wg=C.createGain();
+            this.wg=c.createGain();
             this.wg.gain.value=0;
             s.connect(f);
             f.connect(this.wg);
-            this.wg.connect(C.destination);
+            this.wg.connect(c.destination);
             s.start();
-        }},
+        },
         ok() { return this.ctx && !this.muted; },
         tone(f,d,type,g,to){
             if(!this.ok()) return;
             const c=this.ctx,
             o=c.createOscillator(),
-            v=createGain(),
-            t=currentTime;
+            v=c.createGain(),
+            t=c.currentTime;
             o.type=type;
             o.frequency.setValueAtTime(f,t);
             if(to) o.frequency.exponentialRampToValueAtTime(to,t+d);
             v.gain.setValueAtTime(g,t);
             v.gain.exponentialRampToValueAtTime(0.001,t+d);
             o.connect(v);
-            v.connect(C.destination);
+            v.connect(c.destination);
             o.start(t);
-            o.stop(t,d);
+            o.stop(t+d);
         },
         burst(d,g,type,f){
             if(!this.ok()) return;
@@ -60,7 +60,7 @@ const snd={
         },
         grab(){
             this.burst(0.09,0.25,'lowpass',350);
-            this.tone(1100.08,'triangle',0.12);
+            this.tone(110,0.08,'triangle',0.12);
         },
         chalk(){
             this.burst(0.3,0.18,'highpass',2500);
@@ -69,7 +69,7 @@ const snd={
         crumble(){this.burst(0.6,0.4,'lowpass',500);},
         chime(){[660,880,1320].forEach((f,i)=>setTimeout(()=>this.tone(f,0.9,'sine',
             0.12),i*150)); },
-            wind(v){if(this.wg) this.wg.gain.value=this.muted ? 0:V},
+            wind(v){if(this.wg) this.wg.gain.value=this.muted ? 0:v},
             toggle(){this.muted= !this.muted; 
             if(this.wg && this.muted) this.wg.gain.value=0;
             return this.muted;}
