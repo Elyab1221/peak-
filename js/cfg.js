@@ -44,5 +44,5 @@ const cfg={
         {n: 'Summit Spire', at:650,rock:'#1b2230'},
     ],
     sky:['#f3efe6','#e2dcd0'],
-    keys:{lb:'cg_lb',best: 'cg_best'}
+    keys:{lb:'cg_lb',best: 'cg_best',ghost:'cg_ghost'}
 };

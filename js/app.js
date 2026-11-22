@@ -27,10 +27,14 @@
     addEventListener('resize',size);
     size();
     let st,p,hold,tgt,grip,flow,lastGrab,parts,anchor,maxAlt,chalk,pit,buff,aim,down,ended,hangT,noHold,noT,wind=0,runT=0,paused=false,shake=0,lives,rocks=[],warnings=[],rockTimer=0;
-    let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0);
+    let lb=load(cfg.keys.lb,[]),best=load(cfg.keys.best,0),ghost=load(cfg.keys.ghost,null),rec=[],recT=0,curSeed=0,forceRand=false;
     const L={};
     function reset(){
-        wall.reset(1+Math.floor(Math.random()*9999));
+        curSeed=(forceRand || !ghost)?(1+Math.floor(Math.random()*9999)):ghost.seed;
+        forceRand=false;
+        wall.reset(curSeed);
+        rec=[];
+        recT=0;
         hold=wall.holds[0];
         p={
             x:hold.x,
@@ -121,6 +125,8 @@
         for(const h of wall.holds) if(!h.gone && h.y<anchor.y) {const d=Math.hypot(h.x-qx,h.y-qy);
             if(d<bd){bd=d;b=h;}}
             if(!b) return end('fell');
+            p.x=b.x;
+            p.y=b.y-HAND-20;
             p.vx=p.vy=0;
             tgt=b;
             st='reach';
@@ -139,7 +145,11 @@
         lb.sort((a,b)=>b.m-a.m);
         lb=lb.slice(0,10);
         save(cfg.keys.lb,lb);
-        if(m>best) {best=m; save(cfg.keys.best,m); }
+        if(m>best) {
+            best=m; save(cfg.keys.best,m);
+            ghost={seed:curSeed,pts:rec};
+            save(cfg.keys.ghost,ghost);
+        }
         if (res==='summit') snd.chime();
         $('et').textContent=res==='summit' ? 'Summit reached' : 'Off the wall';
         $('ep').textContent='Highest point: '+m+'m'+(res==='summit' ? ' in '+fmt(runT) : '');
@@ -158,6 +168,10 @@
     function update(dt){
         t+=dt;
         runT+=dt;
+        recT+=dt;
+        if(recT>=0.1 && runT<=900){
+            recT-=0.1;
+            rec.push([Math.round(p.x),Math.round(p.y)]);}
         chalk.cd=Math.max(0,chalk.cd-dt);
         pit.cd=Math.max(0,pit.cd-dt); 
         buff=Math.max(0,buff-dt);
@@ -194,7 +208,7 @@
             else if(st==='fly'){
                 p.vy-=cfg.grav*dt;
                 p.vx+=wind*dt;
-                p.x+=p.vx*dt;
+                p.x=clamp(p.x+p.vx*dt,-cfg.half,cfg.half);
                 p.y+=p.vy*dt;
             
             for(const h of wall.holds){
@@ -326,6 +340,7 @@
     $('bChalk').onclick=doChalk;
     $('bpit').onclick=doPit;
     $('again').onclick=reset;
+    $('bRand').onclick=()=>{forceRand=true;reset();};
     $('bLog').onclick=()=>{drawLb();$('drawer').classList.toggle('open');};
     $('bClose').onclick=()=>$('drawer').classList.remove('open');
     $('bSfx').onclick=()=>{snd.init(); $('bSfx').textContent=snd.toggle()? 'SFX off': 'SFX on';};
@@ -473,6 +488,39 @@
                         g.lineWidth=1.5;g.setLineDash([6,6]);
                         g.beginPath();g.arc(sx(p.x),sy(p.y+HAND),cfg.reach,0,7);
                         g.stroke();g.setLineDash([]);
+                    }
+                    if(ghost && ghost.seed===curSeed && Array.isArray(ghost.pts)){
+                        const idx=Math.floor(runT*10);
+                        const pt=ghost.pts[idx];
+                        if(pt && typeof pt[0]==='number'){
+                            const gx=sx(pt[0]),gy=sy(pt[1]),gshy=sy(pt[1]+32);
+                            g.save();
+                            g.globalAlpha=0.65;
+                            g.lineCap='round';
+                            g.strokeStyle='#f3efe6';
+                            g.lineWidth=12;
+                            g.beginPath();
+                            g.moveTo(gx,gy);
+                            g.lineTo(gx,gshy);
+                            g.stroke();
+                            g.fillStyle='#f3efe6';
+                            g.strokeStyle='#18181b';
+                            g.lineWidth=1.5;
+                            g.beginPath();
+                            g.arc(gx,gshy-13,8,0,7);
+                            g.fill();
+                            g.stroke();
+                            g.fillStyle='#e04f16';
+                            g.beginPath();
+                            g.arc(gx,gshy-13,8,Math.PI,0);
+                            g.fill();
+                            g.stroke();
+                            g.font='700 11px monospace';
+                            g.fillStyle='#f3efe6';
+                            g.textAlign='center';
+                            g.fillText('best',gx,gshy-25);
+                            g.restore();
+                        }
                     }
                     climber(dt);
                     if(aim && st==='hang'){
